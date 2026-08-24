@@ -1,32 +1,21 @@
-import {
-  BrowserRouter,
-  Routes,
-  Route,
-  useLocation,
-  Navigate,
-} from "react-router-dom";
-
+import { BrowserRouter, Routes, Route, useLocation, Navigate } from "react-router-dom";
 import { AuthProvider } from "./auth/AuthContext";
-
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import ProtectedAdminRoute from "./components/ProtectedAdminRoute";
 import ProtectedCustomerRoute from "./components/ProtectedCustomerRoute";
-
 import Home from "./pages/Home";
 import Products from "./pages/Products";
 import About from "./pages/About";
 import GlobalTrade from "./pages/GlobalTrade";
 import Contact from "./pages/Contact";
 import RequestQuote from "./pages/RequestQuote";
-
 import Login from "./pages/Login";
 import CustomerPortal from "./pages/CustomerPortal";
 import Invoices from "./pages/Invoices";
 import Payments from "./pages/Payments";
 import Orders from "./pages/Orders";
 import Documents from "./pages/Documents";
-
 import AdminDashboard from "./pages/AdminDashboard";
 import Customers from "./pages/admin/Customers";
 import AdminProducts from "./pages/AdminProducts";
@@ -36,21 +25,18 @@ import AdminPayments from "./pages/AdminPayments";
 import AdminShipments from "./pages/AdminShipments";
 import AdminReports from "./pages/admin/Reports";
 import AdminSettings from "./pages/admin/Settings";
-
 import "./App.css";
 
 function AppLayout() {
-  const location = useLocation();
-
-  const isLoginPage = location.pathname === "/login";
-  const isCustomerPortal = location.pathname === "/customer" || location.pathname.startsWith("/customer/");
-  const isAdminPortal = location.pathname === "/admin" || location.pathname.startsWith("/admin/");
+  const { pathname } = useLocation();
+  const isLoginPage = pathname === "/login";
+  const isCustomerPortal = pathname === "/customer" || pathname.startsWith("/customer/");
+  const isAdminPortal = pathname === "/admin" || pathname.startsWith("/admin/");
   const hidePublicLayout = isLoginPage || isCustomerPortal || isAdminPortal;
 
   return (
     <div className="app">
       {!hidePublicLayout && <Navbar />}
-
       <main>
         <Routes>
           <Route path="/" element={<Home />} />
@@ -60,7 +46,6 @@ function AppLayout() {
           <Route path="/contact" element={<Contact />} />
           <Route path="/request-quote" element={<RequestQuote />} />
           <Route path="/login" element={<Login />} />
-
           <Route element={<ProtectedCustomerRoute />}>
             <Route path="/customer" element={<CustomerPortal />} />
             <Route path="/customer/invoices" element={<Invoices />} />
@@ -68,7 +53,6 @@ function AppLayout() {
             <Route path="/customer/orders" element={<Orders />} />
             <Route path="/customer/documents" element={<Documents />} />
           </Route>
-
           <Route element={<ProtectedAdminRoute />}>
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/customers" element={<Customers />} />
@@ -80,24 +64,14 @@ function AppLayout() {
             <Route path="/admin/reports" element={<AdminReports />} />
             <Route path="/admin/settings" element={<AdminSettings />} />
           </Route>
-
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
-
       {!hidePublicLayout && <Footer />}
     </div>
   );
 }
 
-function App() {
-  return (
-    <BrowserRouter>
-      <AuthProvider>
-        <AppLayout />
-      </AuthProvider>
-    </BrowserRouter>
-  );
+export default function App() {
+  return <BrowserRouter><AuthProvider><AppLayout /></AuthProvider></BrowserRouter>;
 }
-
-export default App;
