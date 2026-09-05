@@ -1,5 +1,5 @@
 import { useState } from "react";
-<<<<<<< HEAD
+
 import {
 Bell,
 Building2,
@@ -270,7 +270,7 @@ SYSTEM CONFIGURATION </span>
 </AdminLayout>
 
 );
-=======
+
 import { Bell, Save, Settings as SettingsIcon, ShieldCheck } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -320,7 +320,7 @@ function Settings() {
       </section>
     </main>
   );
->>>>>>> ceffe9c7c6d47d15c954a08fb7eaaf41b529a13a
+
 }
 
 export default Settings;

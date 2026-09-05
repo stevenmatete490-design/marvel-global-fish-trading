@@ -3416,7 +3416,7 @@ EXPORT STORAGE KEYS
 export {
 STORAGE_KEYS,
 };
-=======
+
 import { products as catalogProducts } from "./products";
 
 export const DATA_CHANGE_EVENT = "marvel-data-change";

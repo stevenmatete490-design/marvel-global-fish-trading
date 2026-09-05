@@ -1,158 +1,616 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  Search,
   Plus,
-  MoreHorizontal,
   Users,
+  X,
+  Save,
+  Edit3,
+  Trash2,
+  Search,
   Mail,
   Phone,
-  Building2,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
-import { Link } from "react-router-dom";
 
-const initialCustomers = [
-  {
-    id: "CUS-001",
-    name: "John Smith",
-    company: "John Smith Trading",
-    email: "john@johnsmithtrading.com",
-    phone: "+1 202 555 0142",
-    country: "United States",
-    status: "ACTIVE",
-    orders: 24,
-    balance: "$4,500",
-  },
-  {
-    id: "CUS-002",
-    name: "Ahmed Hassan",
-    company: "Gulf Seafood LLC",
-    email: "ahmed@gulfseafood.com",
-    phone: "+971 50 555 0123",
-    country: "United Arab Emirates",
-    status: "ACTIVE",
-    orders: 18,
-    balance: "$7,200",
-  },
-  {
-    id: "CUS-003",
-    name: "Michael Brown",
-    company: "Ocean Foods Ltd",
-    email: "michael@oceanfoods.com",
-    phone: "+44 20 5555 0123",
-    country: "United Kingdom",
-    status: "ACTIVE",
-    orders: 12,
-    balance: "$2,800",
-  },
-  {
-    id: "CUS-004",
-    name: "David Wilson",
-    company: "Blue Coast Trading",
-    email: "david@bluecoast.com",
-    phone: "+61 2 5550 1234",
-    country: "Australia",
-    status: "PENDING",
-    orders: 5,
-    balance: "$6,150",
-  },
-];
+import AdminLayout from "../components/AdminLayout";
 
-function AdminCustomers() {
-  const [customers, setCustomers] = useState(initialCustomers);
+import {
+  getCustomers,
+  addCustomer,
+  updateCustomer,
+  deleteCustomer,
+  nextId,
+  subscribeToDataChanges,
+} from "../data/store";
+
+const EMPTY_FORM = {
+  name: "",
+  company: "",
+  email: "",
+  phone: "",
+  country: "Kenya",
+  status: "Active",
+};
+
+export default function AdminCustomers() {
+  // ============================================================
+  // STATE
+  // ============================================================
+
+  const [customers, setCustomers] = useState([]);
   const [search, setSearch] = useState("");
-  const [showForm, setShowForm] = useState(false);
+
+  const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState(null);
 
   const [form, setForm] = useState({
-    name: "",
-    company: "",
-    email: "",
-    phone: "",
-    country: "",
+    ...EMPTY_FORM,
   });
 
-  const filteredCustomers = customers.filter((customer) =>
-    `${customer.name} ${customer.company} ${customer.email} ${customer.country}`
-      .toLowerCase()
-      .includes(search.toLowerCase())
-  );
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  // ============================================================
+  // LOAD CUSTOMERS
+  // ============================================================
+
+  const loadCustomers = () => {
+    try {
+      const data = getCustomers();
+
+      setCustomers(
+        Array.isArray(data) ? [...data] : []
+      );
+    } catch (err) {
+      console.error(
+        "MARVEL CUSTOMER LOAD ERROR:",
+        err
+      );
+
+      setCustomers([]);
+    }
+  };
+
+  // ============================================================
+  // INITIAL LOAD + STORE SUBSCRIPTION
+  // ============================================================
+
+  useEffect(() => {
+    console.log(
+      "MARVEL ADMIN CUSTOMERS LOADED"
+    );
+
+    loadCustomers();
+
+    const unsubscribe =
+      subscribeToDataChanges((type) => {
+        console.log(
+          "MARVEL CUSTOMER STORE CHANGE:",
+          type
+        );
+
+        loadCustomers();
+      });
+
+    return unsubscribe;
+  }, []);
+
+  // ============================================================
+  // SEARCH
+  // ============================================================
+
+  const filteredCustomers = useMemo(() => {
+    const query = search
+      .trim()
+      .toLowerCase();
+
+    if (!query) {
+      return customers;
+    }
+
+    return customers.filter(
+      (customer) => {
+        const text = [
+          customer.id,
+          customer.name,
+          customer.company,
+          customer.email,
+          customer.phone,
+          customer.country,
+          customer.status,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+
+        return text.includes(query);
+      }
+    );
+  }, [customers, search]);
+
+  // ============================================================
+  // STATISTICS
+  // ============================================================
+
+  const activeCustomers =
+    customers.filter(
+      (customer) =>
+        String(
+          customer.status || ""
+        ).toLowerCase() === "active"
+    ).length;
+
+  const pendingCustomers =
+    customers.filter(
+      (customer) =>
+        String(
+          customer.status || ""
+        ).toLowerCase() === "pending"
+    ).length;
+
+  const inactiveCustomers =
+    customers.filter(
+      (customer) =>
+        String(
+          customer.status || ""
+        ).toLowerCase() === "inactive"
+    ).length;
+
+  // ============================================================
+  // OPEN ADD MODAL
+  // ============================================================
+
+  const openAddModal = () => {
+    console.log(
+      "MARVEL: ADD CUSTOMER"
+    );
+
+    setEditingId(null);
+
+    setForm({
+      ...EMPTY_FORM,
+    });
+
+    setError("");
+    setSuccess("");
+    setShowModal(true);
+  };
+
+  // ============================================================
+  // OPEN EDIT MODAL
+  // ============================================================
+
+  const openEditModal = (customer) => {
+    console.log(
+      "MARVEL: EDIT CUSTOMER",
+      customer
+    );
+
+    setEditingId(customer.id);
+
+    setForm({
+      name: customer.name || "",
+      company: customer.company || "",
+      email: customer.email || "",
+      phone: customer.phone || "",
+      country:
+        customer.country || "Kenya",
+      status:
+        customer.status || "Active",
+    });
+
+    setError("");
+    setSuccess("");
+    setShowModal(true);
+  };
+
+  // ============================================================
+  // CLOSE MODAL
+  // ============================================================
+
+  const closeModal = () => {
+    if (saving) {
+      return;
+    }
+
+    setShowModal(false);
+    setEditingId(null);
+
+    setForm({
+      ...EMPTY_FORM,
+    });
+
+    setError("");
+    setSuccess("");
+  };
+
+  // ============================================================
+  // FORM CHANGE
+  // ============================================================
+
+  const handleChange = (event) => {
+    const {
+      name,
+      value,
+    } = event.target;
+
+    setForm((current) => ({
+      ...current,
+      [name]: value,
+    }));
+
+    setError("");
+    setSuccess("");
+  };
+
+  // ============================================================
+  // VALIDATE FORM
+  // ============================================================
+
+  const validateForm = () => {
+    const name = String(
+      form.name || ""
+    ).trim();
+
+    const company = String(
+      form.company || ""
+    ).trim();
+
+    const email = String(
+      form.email || ""
+    ).trim();
+
+    const phone = String(
+      form.phone || ""
+    ).trim();
+
+    const country = String(
+      form.country || ""
+    ).trim();
+
+    if (!name) {
+      return "Please enter the customer's full name.";
+    }
+
+    if (!company) {
+      return "Please enter the company name.";
+    }
+
+    if (!email) {
+      return "Please enter the customer's email address.";
+    }
+
+    if (!phone) {
+      return "Please enter the customer's phone number.";
+    }
+
+    if (!country) {
+      return "Please enter the customer's country.";
+    }
+
+    const emailRegex =
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailRegex.test(email)) {
+      return "Please enter a valid email address.";
+    }
+
+    return null;
+  };
+
+  // ============================================================
+  // DUPLICATE EMAIL CHECK
+  // ============================================================
+
+  const emailExists = () => {
+    const email = String(
+      form.email || ""
+    )
+      .trim()
+      .toLowerCase();
+
+    return customers.some(
+      (customer) => {
+        const customerEmail =
+          String(
+            customer.email || ""
+          )
+            .trim()
+            .toLowerCase();
+
+        if (
+          customerEmail !== email
+        ) {
+          return false;
+        }
+
+        if (
+          editingId &&
+          customer.id === editingId
+        ) {
+          return false;
+        }
+
+        return true;
+      }
+    );
+  };
+
+  // ============================================================
+  // SAVE CUSTOMER
+  // ============================================================
 
   const handleSubmit = (event) => {
     event.preventDefault();
 
-    const newCustomer = {
-      id: `CUS-${String(customers.length + 1).padStart(3, "0")}`,
-      ...form,
-      status: "ACTIVE",
-      orders: 0,
-      balance: "$0",
+    console.log(
+      "MARVEL: CUSTOMER FORM SUBMITTED"
+    );
+
+    if (saving) {
+      return;
+    }
+
+    setError("");
+    setSuccess("");
+
+    const validationError =
+      validateForm();
+
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    if (emailExists()) {
+      setError(
+        "A customer with this email address already exists."
+      );
+
+      return;
+    }
+
+    const customerData = {
+      name: String(
+        form.name || ""
+      ).trim(),
+
+      company: String(
+        form.company || ""
+      ).trim(),
+
+      email: String(
+        form.email || ""
+      ).trim(),
+
+      phone: String(
+        form.phone || ""
+      ).trim(),
+
+      country: String(
+        form.country || "Kenya"
+      ).trim(),
+
+      status: String(
+        form.status || "Active"
+      ).trim(),
     };
 
-    setCustomers((current) => [...current, newCustomer]);
+    setSaving(true);
 
-    setForm({
-      name: "",
-      company: "",
-      email: "",
-      phone: "",
-      country: "",
-    });
+    try {
+      // ========================================================
+      // UPDATE EXISTING CUSTOMER
+      // ========================================================
 
-    setShowForm(false);
+      if (editingId) {
+        console.log(
+          "MARVEL: UPDATING CUSTOMER",
+          editingId
+        );
+
+        const updatedCustomer =
+          updateCustomer(
+            editingId,
+            customerData
+          );
+
+        if (!updatedCustomer) {
+          throw new Error(
+            "Customer could not be updated."
+          );
+        }
+
+        console.log(
+          "MARVEL: CUSTOMER UPDATED",
+          updatedCustomer
+        );
+
+        loadCustomers();
+
+        setSuccess(
+          "Customer updated successfully."
+        );
+      }
+
+      // ========================================================
+      // ADD NEW CUSTOMER
+      // ========================================================
+
+      else {
+        console.log(
+          "MARVEL: CREATING CUSTOMER"
+        );
+
+        const newCustomer =
+          addCustomer(
+            customerData
+          );
+
+        if (!newCustomer) {
+          throw new Error(
+            "Customer could not be created."
+          );
+        }
+
+        console.log(
+          "MARVEL: CUSTOMER CREATED",
+          newCustomer
+        );
+
+        loadCustomers();
+
+        setSuccess(
+          `Customer ${newCustomer.id} created successfully.`
+        );
+      }
+
+      // ========================================================
+      // CLOSE AFTER SUCCESS
+      // ========================================================
+
+      setTimeout(() => {
+        setShowModal(false);
+        setEditingId(null);
+
+        setForm({
+          ...EMPTY_FORM,
+        });
+
+        setError("");
+        setSuccess("");
+        setSaving(false);
+
+        loadCustomers();
+      }, 700);
+    } catch (err) {
+      console.error(
+        "MARVEL CUSTOMER SAVE ERROR:",
+        err
+      );
+
+      setError(
+        err?.message ||
+          "Unable to save customer."
+      );
+
+      setSaving(false);
+    }
   };
 
+  // ============================================================
+  // DELETE CUSTOMER
+  // ============================================================
+
+  const handleDelete = (customer) => {
+    const customerName =
+      customer.company ||
+      customer.name ||
+      customer.id ||
+      "this customer";
+
+    console.log(
+      "MARVEL: DELETE CUSTOMER",
+      customer
+    );
+
+    const confirmed =
+      window.confirm(
+        `Delete "${customerName}"?\n\nThis action cannot be undone.`
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const result =
+        deleteCustomer(
+          customer.id
+        );
+
+      if (!Array.isArray(result)) {
+        throw new Error(
+          "Customer could not be deleted."
+        );
+      }
+
+      setCustomers([
+        ...result,
+      ]);
+
+      setSuccess(
+        `${customerName} deleted successfully.`
+      );
+
+      setError("");
+
+      console.log(
+        "MARVEL: CUSTOMER DELETED",
+        customer.id
+      );
+
+      setTimeout(() => {
+        setSuccess("");
+      }, 2500);
+    } catch (err) {
+      console.error(
+        "MARVEL CUSTOMER DELETE ERROR:",
+        err
+      );
+
+      setError(
+        err?.message ||
+          "Unable to delete customer."
+      );
+    }
+  };
+
+  // ============================================================
+  // NEXT CUSTOMER ID
+  // ============================================================
+
+  const nextCustomerId =
+    nextId(
+      "CUS",
+      customers
+    );
+
+  // ============================================================
+  // STATUS CLASS
+  // ============================================================
+
+  const statusClass = (
+    status
+  ) => {
+    const value = String(
+      status || ""
+    ).toLowerCase();
+
+    if (value === "active") {
+      return "success";
+    }
+
+    if (value === "pending") {
+      return "warning";
+    }
+
+    return "inactive";
+  };
+
+  // ============================================================
+  // RENDER
+  // ============================================================
+
   return (
-    <main className="admin-layout">
+    <AdminLayout>
+      <div className="admin-page">
 
-      <aside className="admin-sidebar">
-
-        <Link to="/" className="admin-brand">
-          MARVEL
-          <span>GLOBAL FISH TRADING</span>
-        </Link>
-
-        <div className="admin-sidebar-label">
-          ADMINISTRATION
-        </div>
-
-        <nav className="admin-navigation">
-
-          <Link to="/admin" className="admin-nav-link">
-            Dashboard
-          </Link>
-
-          <Link
-            to="/admin/customers"
-            className="admin-nav-link active"
-          >
-            <Users size={17} />
-            Customers
-          </Link>
-
-          <Link to="/admin/products" className="admin-nav-link">
-            Products
-          </Link>
-
-          <Link to="/admin/orders" className="admin-nav-link">
-            Orders
-          </Link>
-
-          <Link to="/admin/invoices" className="admin-nav-link">
-            Invoices
-          </Link>
-
-          <Link to="/admin/payments" className="admin-nav-link">
-            Payments
-          </Link>
-
-          <Link to="/admin/shipments" className="admin-nav-link">
-            Shipments
-          </Link>
-
-        </nav>
-
-      </aside>
-
-      <section className="admin-main">
+        {/* ====================================================
+            HEADER
+        ==================================================== */}
 
         <header className="admin-header">
 
@@ -161,17 +619,20 @@ function AdminCustomers() {
               CUSTOMER MANAGEMENT
             </span>
 
-            <h1>Customers</h1>
+            <h1>
+              Customers
+            </h1>
 
             <p>
-              Manage MARVEL Global Fish Trading customers
-              and trade accounts.
+              Manage MARVEL Global Fish Trading
+              customers and trade accounts.
             </p>
           </div>
 
           <button
+            type="button"
             className="admin-primary-button"
-            onClick={() => setShowForm(true)}
+            onClick={openAddModal}
           >
             <Plus size={17} />
             Add Customer
@@ -181,113 +642,637 @@ function AdminCustomers() {
 
         <div className="admin-content">
 
-          <div className="admin-toolbar">
+          {/* ==================================================
+              KPI CARDS
+          ================================================== */}
 
-            <div className="admin-search">
+          <section className="admin-kpis">
 
-              <Search size={17} />
+            <article className="admin-kpi">
 
-              <input
-                type="text"
-                placeholder="Search customers..."
-                value={search}
-                onChange={(event) =>
-                  setSearch(event.target.value)
-                }
-              />
+              <Users size={20} />
+
+              <div>
+                <span>
+                  Total Customers
+                </span>
+
+                <strong>
+                  {customers.length}
+                </strong>
+              </div>
+
+            </article>
+
+            <article className="admin-kpi">
+
+              <CheckCircle2 size={20} />
+
+              <div>
+                <span>
+                  Active Customers
+                </span>
+
+                <strong>
+                  {activeCustomers}
+                </strong>
+              </div>
+
+            </article>
+
+            <article className="admin-kpi">
+
+              <AlertCircle size={20} />
+
+              <div>
+                <span>
+                  Pending Customers
+                </span>
+
+                <strong>
+                  {pendingCustomers}
+                </strong>
+              </div>
+
+            </article>
+
+            <article className="admin-kpi">
+
+              <Users size={20} />
+
+              <div>
+                <span>
+                  Inactive Customers
+                </span>
+
+                <strong>
+                  {inactiveCustomers}
+                </strong>
+              </div>
+
+            </article>
+
+          </section>
+
+          {/* ==================================================
+              CUSTOMER PANEL
+          ================================================== */}
+
+          <section className="admin-panel">
+
+            <div className="admin-panel-header">
+
+              <div>
+                <span className="section-label">
+                  CUSTOMER DATABASE
+                </span>
+
+                <h2>
+                  Customer Accounts
+                </h2>
+              </div>
+
+              <div className="admin-search">
+
+                <Search size={17} />
+
+                <input
+                  type="search"
+                  placeholder="Search customers..."
+                  value={search}
+                  onChange={(event) =>
+                    setSearch(
+                      event.target.value
+                    )
+                  }
+                />
+
+              </div>
 
             </div>
 
-            <span>
-              {filteredCustomers.length} customers
-            </span>
+            {/* SUCCESS MESSAGE */}
 
-          </div>
+            {success && (
+              <div className="admin-success-message">
+                <CheckCircle2 size={17} />
+                <span>
+                  {success}
+                </span>
+              </div>
+            )}
 
-          {showForm && (
-            <div className="admin-form-panel">
+            {/* ERROR MESSAGE */}
 
-              <div className="admin-panel-header">
-                <div>
-                  <span className="section-label">
-                    NEW ACCOUNT
+            {error &&
+              !showModal && (
+                <div className="admin-error-message">
+                  <AlertCircle size={17} />
+                  <span>
+                    {error}
                   </span>
-                  <h2>Add customer</h2>
                 </div>
+              )}
+
+            {/* =================================================
+                EMPTY STATE
+            ================================================= */}
+
+            {filteredCustomers.length ===
+            0 ? (
+
+              <div className="admin-empty-state">
+
+                <Users size={42} />
+
+                <h3>
+                  {search
+                    ? "No customers found"
+                    : "No customers yet"}
+                </h3>
+
+                <p>
+                  {search
+                    ? "Try another search."
+                    : "Add your first MARVEL Global Fish Trading customer."}
+                </p>
+
+                {!search && (
+                  <button
+                    type="button"
+                    className="admin-primary-button"
+                    onClick={
+                      openAddModal
+                    }
+                  >
+                    <Plus size={17} />
+                    Add Customer
+                  </button>
+                )}
+
               </div>
 
+            ) : (
+
+              <div className="admin-table-wrapper">
+
+                <table className="admin-table">
+
+                  <thead>
+
+                    <tr>
+
+                      <th>
+                        Customer
+                      </th>
+
+                      <th>
+                        Contact
+                      </th>
+
+                      <th>
+                        Country
+                      </th>
+
+                      <th>
+                        Status
+                      </th>
+
+                      <th>
+                        Created
+                      </th>
+
+                      <th>
+                        Actions
+                      </th>
+
+                    </tr>
+
+                  </thead>
+
+                  <tbody>
+
+                    {filteredCustomers.map(
+                      (customer) => (
+
+                        <tr
+                          key={
+                            customer.id
+                          }
+                        >
+
+                          <td>
+
+                            <strong>
+                              {customer.company ||
+                                "Unnamed Company"}
+                            </strong>
+
+                            <small>
+                              {customer.id}
+                              {" · "}
+                              {customer.name ||
+                                "Unnamed Customer"}
+                            </small>
+
+                          </td>
+
+                          <td>
+
+                            <div className="admin-contact">
+
+                              <span>
+
+                                <Mail
+                                  size={13}
+                                />
+
+                                {customer.email ||
+                                  "No email"}
+
+                              </span>
+
+                              <span>
+
+                                <Phone
+                                  size={13}
+                                />
+
+                                {customer.phone ||
+                                  "No phone"}
+
+                              </span>
+
+                            </div>
+
+                          </td>
+
+                          <td>
+                            {customer.country ||
+                              "Kenya"}
+                          </td>
+
+                          <td>
+
+                            <span
+                              className={`admin-status ${statusClass(
+                                customer.status
+                              )}`}
+                            >
+                              {String(
+                                customer.status ||
+                                  "Active"
+                              ).toUpperCase()}
+                            </span>
+
+                          </td>
+
+                          <td>
+                            {customer.createdAt
+                              ? new Date(
+                                  customer.createdAt
+                                ).toLocaleDateString()
+                              : "—"}
+                          </td>
+
+                          <td>
+
+                            <div className="admin-table-actions">
+
+                              <button
+                                type="button"
+                                className="admin-icon-button"
+                                title="Edit customer"
+                                onClick={() =>
+                                  openEditModal(
+                                    customer
+                                  )
+                                }
+                              >
+                                <Edit3
+                                  size={16}
+                                />
+                              </button>
+
+                              <button
+                                type="button"
+                                className="admin-icon-button danger"
+                                title="Delete customer"
+                                onClick={() =>
+                                  handleDelete(
+                                    customer
+                                  )
+                                }
+                              >
+                                <Trash2
+                                  size={16}
+                                />
+                              </button>
+
+                            </div>
+
+                          </td>
+
+                        </tr>
+
+                      )
+                    )}
+
+                  </tbody>
+
+                </table>
+
+              </div>
+
+            )}
+
+          </section>
+
+        </div>
+
+        {/* ======================================================
+            ADD / EDIT MODAL
+        ====================================================== */}
+
+        {showModal && (
+
+          <div
+            className="admin-modal-backdrop"
+            onMouseDown={(event) => {
+
+              if (
+                event.target ===
+                event.currentTarget
+              ) {
+                closeModal();
+              }
+
+            }}
+          >
+
+            <div
+              className="admin-modal"
+              role="dialog"
+              aria-modal="true"
+              onMouseDown={(event) =>
+                event.stopPropagation()
+              }
+            >
+
+              {/* MODAL HEADER */}
+
+              <div className="admin-modal-header">
+
+                <div>
+
+                  <span className="section-label">
+
+                    {editingId
+                      ? "EDIT CUSTOMER"
+                      : "NEW CUSTOMER"}
+
+                  </span>
+
+                  <h2>
+
+                    {editingId
+                      ? "Edit Customer"
+                      : "Add Customer"}
+
+                  </h2>
+
+                  <small>
+
+                    Customer ID:{" "}
+
+                    <strong>
+                      {editingId ||
+                        nextCustomerId}
+                    </strong>
+
+                  </small>
+
+                </div>
+
+                <button
+                  type="button"
+                  className="admin-icon-button"
+                  onClick={closeModal}
+                  disabled={saving}
+                  aria-label="Close"
+                >
+                  <X size={20} />
+                </button>
+
+              </div>
+
+              {/* FORM */}
+
               <form
-                className="admin-form-grid"
-                onSubmit={handleSubmit}
+                className="admin-form"
+                onSubmit={
+                  handleSubmit
+                }
               >
 
-                <input
-                  placeholder="Full name"
-                  value={form.name}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      name: e.target.value,
-                    })
-                  }
-                  required
-                />
+                <div className="admin-form-grid">
 
-                <input
-                  placeholder="Company name"
-                  value={form.company}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      company: e.target.value,
-                    })
-                  }
-                  required
-                />
+                  {/* NAME */}
 
-                <input
-                  type="email"
-                  placeholder="Email address"
-                  value={form.email}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      email: e.target.value,
-                    })
-                  }
-                  required
-                />
+                  <div className="admin-form-group">
 
-                <input
-                  placeholder="Phone number"
-                  value={form.phone}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      phone: e.target.value,
-                    })
-                  }
-                  required
-                />
+                    <label htmlFor="customer-name">
+                      Full Name *
+                    </label>
 
-                <input
-                  placeholder="Country"
-                  value={form.country}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      country: e.target.value,
-                    })
-                  }
-                  required
-                />
+                    <input
+                      id="customer-name"
+                      name="name"
+                      type="text"
+                      value={form.name}
+                      onChange={
+                        handleChange
+                      }
+                      placeholder="John Smith"
+                      disabled={saving}
+                      autoFocus
+                    />
+
+                  </div>
+
+                  {/* COMPANY */}
+
+                  <div className="admin-form-group">
+
+                    <label htmlFor="customer-company">
+                      Company Name *
+                    </label>
+
+                    <input
+                      id="customer-company"
+                      name="company"
+                      type="text"
+                      value={
+                        form.company
+                      }
+                      onChange={
+                        handleChange
+                      }
+                      placeholder="Ocean Foods Ltd"
+                      disabled={saving}
+                    />
+
+                  </div>
+
+                  {/* EMAIL */}
+
+                  <div className="admin-form-group">
+
+                    <label htmlFor="customer-email">
+                      Email Address *
+                    </label>
+
+                    <input
+                      id="customer-email"
+                      name="email"
+                      type="email"
+                      value={form.email}
+                      onChange={
+                        handleChange
+                      }
+                      placeholder="customer@company.com"
+                      disabled={saving}
+                    />
+
+                  </div>
+
+                  {/* PHONE */}
+
+                  <div className="admin-form-group">
+
+                    <label htmlFor="customer-phone">
+                      Phone Number *
+                    </label>
+
+                    <input
+                      id="customer-phone"
+                      name="phone"
+                      type="tel"
+                      value={form.phone}
+                      onChange={
+                        handleChange
+                      }
+                      placeholder="+254 700 000000"
+                      disabled={saving}
+                    />
+
+                  </div>
+
+                  {/* COUNTRY */}
+
+                  <div className="admin-form-group">
+
+                    <label htmlFor="customer-country">
+                      Country *
+                    </label>
+
+                    <input
+                      id="customer-country"
+                      name="country"
+                      type="text"
+                      value={
+                        form.country
+                      }
+                      onChange={
+                        handleChange
+                      }
+                      placeholder="Kenya"
+                      disabled={saving}
+                    />
+
+                  </div>
+
+                  {/* STATUS */}
+
+                  <div className="admin-form-group">
+
+                    <label htmlFor="customer-status">
+                      Account Status
+                    </label>
+
+                    <select
+                      id="customer-status"
+                      name="status"
+                      value={
+                        form.status
+                      }
+                      onChange={
+                        handleChange
+                      }
+                      disabled={saving}
+                    >
+
+                      <option value="Active">
+                        Active
+                      </option>
+
+                      <option value="Pending">
+                        Pending
+                      </option>
+
+                      <option value="Inactive">
+                        Inactive
+                      </option>
+
+                    </select>
+
+                  </div>
+
+                </div>
+
+                {/* FORM ERROR */}
+
+                {error && (
+                  <div className="admin-error-message">
+
+                    <AlertCircle
+                      size={17}
+                    />
+
+                    <span>
+                      {error}
+                    </span>
+
+                  </div>
+                )}
+
+                {/* FORM SUCCESS */}
+
+                {success && (
+                  <div className="admin-success-message">
+
+                    <CheckCircle2
+                      size={17}
+                    />
+
+                    <span>
+                      {success}
+                    </span>
+
+                  </div>
+                )}
+
+                {/* BUTTONS */}
 
                 <div className="admin-form-actions">
 
                   <button
                     type="button"
-                    onClick={() => setShowForm(false)}
                     className="admin-secondary-button"
+                    onClick={
+                      closeModal
+                    }
+                    disabled={saving}
                   >
                     Cancel
                   </button>
@@ -295,8 +1280,17 @@ function AdminCustomers() {
                   <button
                     type="submit"
                     className="admin-primary-button"
+                    disabled={saving}
                   >
-                    Create Customer
+
+                    <Save size={17} />
+
+                    {saving
+                      ? "Saving..."
+                      : editingId
+                      ? "Update Customer"
+                      : "Create Customer"}
+
                   </button>
 
                 </div>
@@ -304,93 +1298,13 @@ function AdminCustomers() {
               </form>
 
             </div>
-          )}
-
-          <div className="admin-panel">
-
-            <div className="admin-table admin-customer-table">
-
-              <div className="admin-table-head">
-                <span>CUSTOMER</span>
-                <span>CONTACT</span>
-                <span>COUNTRY</span>
-                <span>ORDERS</span>
-                <span>BALANCE</span>
-                <span>STATUS</span>
-                <span></span>
-              </div>
-
-              {filteredCustomers.map((customer) => (
-
-                <div
-                  className="admin-table-row"
-                  key={customer.id}
-                >
-
-                  <div className="admin-customer-name">
-                    <strong>
-                      {customer.company}
-                    </strong>
-
-                    <span>
-                      {customer.id} · {customer.name}
-                    </span>
-                  </div>
-
-                  <div className="admin-contact">
-
-                    <span>
-                      <Mail size={13} />
-                      {customer.email}
-                    </span>
-
-                    <span>
-                      <Phone size={13} />
-                      {customer.phone}
-                    </span>
-
-                  </div>
-
-                  <span>
-                    {customer.country}
-                  </span>
-
-                  <strong>
-                    {customer.orders}
-                  </strong>
-
-                  <strong>
-                    {customer.balance}
-                  </strong>
-
-                  <span
-                    className={`admin-status ${
-                      customer.status === "ACTIVE"
-                        ? "paid"
-                        : "pending"
-                    }`}
-                  >
-                    {customer.status}
-                  </span>
-
-                  <button className="admin-more-button">
-                    <MoreHorizontal size={17} />
-                  </button>
-
-                </div>
-
-              ))}
-
-            </div>
 
           </div>
 
-        </div>
+        )}
 
-      </section>
-
-    </main>
+      </div>
+    </AdminLayout>
   );
 }
 
-export default AdminCustomers;
