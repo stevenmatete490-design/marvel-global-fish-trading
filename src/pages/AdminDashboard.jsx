@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import {
   Bell,
   ChevronRight,
@@ -9,65 +10,22 @@ import {
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
+=======
+import { useEffect, useState } from "react";
+import { ArrowUpRight, Bell, ChevronRight, FileText, Package, Ship, Users, Wallet } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { getCustomers, getOrders, getProducts, subscribeToDataChanges } from "../data/store";
+>>>>>>> ceffe9c7c6d47d15c954a08fb7eaaf41b529a13a
 import { useAuth } from "../auth/AuthContext";
 import AdminLayout from "../components/AdminLayout";
 
-const transactions = [
-  {
-    id: "MAR-001",
-    customer: "John Smith Trading",
-    amount: "$4,500",
-    status: "PAID",
-    date: "24 Aug 2026",
-  },
-  {
-    id: "MAR-002",
-    customer: "Gulf Seafood LLC",
-    amount: "$7,200",
-    status: "PENDING",
-    date: "23 Aug 2026",
-  },
-  {
-    id: "MAR-003",
-    customer: "Ocean Foods Ltd",
-    amount: "$2,800",
-    status: "PAID",
-    date: "22 Aug 2026",
-  },
-  {
-    id: "MAR-004",
-    customer: "Blue Coast Trading",
-    amount: "$6,150",
-    status: "PENDING",
-    date: "21 Aug 2026",
-  },
-];
-
-const orders = [
-  {
-    id: "ORD-MAR-001",
-    product: "Frozen Fish",
-    quantity: "2,000 KG",
-    status: "IN TRANSIT",
-  },
-  {
-    id: "ORD-MAR-002",
-    product: "Premium Shrimp",
-    quantity: "1,500 KG",
-    status: "PROCESSING",
-  },
-  {
-    id: "ORD-MAR-003",
-    product: "Fresh Fish",
-    quantity: "1,000 KG",
-    status: "DELIVERED",
-  },
-];
+const navItems = [["/admin", "Dashboard", Wallet], ["/admin/customers", "Customers", Users], ["/admin/products", "Products", Package], ["/admin/orders", "Orders", Ship], ["/admin/invoices", "Invoices", FileText], ["/admin/payments", "Payments", Wallet], ["/admin/shipments", "Shipments", Ship], ["/admin/reports", "Reports", ArrowUpRight]];
 
 function AdminDashboard() {
   const navigate = useNavigate();
 
   const { user, logout } = useAuth();
+<<<<<<< HEAD
 
   /*
    * ==========================================
@@ -522,6 +480,17 @@ function AdminDashboard() {
       </div>
     </AdminLayout>
   );
+=======
+  const [orders, setOrders] = useState(getOrders);
+  const [customers, setCustomers] = useState(getCustomers);
+  const [products, setProducts] = useState(getProducts);
+  useEffect(() => subscribeToDataChanges(() => { setOrders(getOrders()); setCustomers(getCustomers()); setProducts(getProducts()); }), []);
+  const pendingOrders = orders.filter((order) => order.status === "PENDING" || order.status === "PROCESSING").length;
+  const activeShipments = orders.filter((order) => order.status === "IN TRANSIT" || order.status === "PROCESSING").length;
+  const handleLogout = () => { logout(); navigate("/login", { replace: true }); };
+
+  return <main className="admin-layout"><aside className="admin-sidebar"><Link to="/" className="admin-brand">MARVEL<span>GLOBAL FISH TRADING</span></Link><div className="admin-sidebar-label">ADMINISTRATION</div><nav className="admin-navigation">{navItems.map(([path, label, Icon]) => <Link key={path} to={path} className={`admin-nav-link ${path === "/admin" ? "active" : ""}`}><Icon size={17} />{label}</Link>)}</nav><div className="admin-sidebar-bottom"><Link to="/admin/settings" className="admin-nav-link">Settings</Link><button type="button" className="admin-logout" onClick={handleLogout}>Sign Out</button></div></aside><section className="admin-main"><header className="admin-header"><div><span className="section-label">MARVEL ADMINISTRATION</span><h1>Business overview</h1></div><div className="admin-header-actions"><button type="button" className="admin-icon-button" aria-label="Notifications"><Bell size={18} /></button><div className="admin-user"><div className="admin-avatar">{user?.name?.split(" ").map((word) => word[0]).join("").slice(0, 2).toUpperCase() || "MG"}</div><div><strong>{user?.name || "MARVEL Admin"}</strong><span>{user?.role === "admin" ? "Administrator" : "User"}</span></div></div></div></header><div className="admin-content"><section className="admin-kpis"><article className="admin-kpi"><div className="admin-kpi-icon"><Wallet size={20} /></div><div><span>Total Orders</span><strong>{orders.length}</strong><small>Live local records</small></div></article><article className="admin-kpi"><div className="admin-kpi-icon"><Users size={20} /></div><div><span>Customers</span><strong>{customers.length}</strong><small>Trade accounts</small></div></article><article className="admin-kpi"><div className="admin-kpi-icon"><Package size={20} /></div><div><span>Products</span><strong>{products.length}</strong><small>Catalogue products</small></div></article><article className="admin-kpi"><div className="admin-kpi-icon"><Ship size={20} /></div><div><span>Active Shipments</span><strong>{activeShipments}</strong><small>{pendingOrders} orders need action</small></div></article></section><section className="admin-section"><div className="admin-section-heading"><div><span className="section-label">QUICK ACTIONS</span><h2>Manage operations</h2></div></div><div className="admin-actions"><Link to="/admin/orders" className="admin-action"><Ship size={20} /><div><strong>Create or update orders</strong><span>Manage fulfillment and status</span></div><ChevronRight size={16} /></Link><Link to="/admin/customers" className="admin-action"><Users size={20} /><div><strong>Manage customers</strong><span>Create and maintain trade accounts</span></div><ChevronRight size={16} /></Link><Link to="/admin/products" className="admin-action"><Package size={20} /><div><strong>Manage products</strong><span>Update the live seafood catalogue</span></div><ChevronRight size={16} /></Link></div></section><section className="admin-panel"><div className="admin-panel-header"><div><span className="section-label">LOGISTICS</span><h2>Recent orders</h2></div><Link to="/admin/orders">View all<ChevronRight size={14} /></Link></div><div className="admin-orders">{orders.slice(0, 5).map((order) => <div className="admin-order" key={order.id}><div className="admin-order-icon"><Ship size={17} /></div><div className="admin-order-info"><strong>{order.id}</strong><span>{order.product} · {order.quantity}</span></div><span className={`admin-status ${order.status.toLowerCase().replaceAll(" ", "-")}`}>{order.status}</span></div>)}{orders.length === 0 && <div className="admin-empty-state"><Ship size={30} /><h3>No orders yet</h3><p>Create your first trade order from the Orders page.</p></div>}</div></section></div></section></main>;
+>>>>>>> ceffe9c7c6d47d15c954a08fb7eaaf41b529a13a
 }
 
 export default AdminDashboard;
