@@ -1,5 +1,4 @@
 import {
-  ArrowUpRight,
   Bell,
   ChevronRight,
   FileText,
@@ -9,7 +8,9 @@ import {
   Wallet,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+
 import { useAuth } from "../auth/AuthContext";
+import AdminLayout from "../components/AdminLayout";
 
 const transactions = [
   {
@@ -65,138 +66,68 @@ const orders = [
 
 function AdminDashboard() {
   const navigate = useNavigate();
+
   const { user, logout } = useAuth();
+
+  /*
+   * ==========================================
+   * LOGOUT
+   * ==========================================
+   */
 
   const handleLogout = () => {
     logout();
 
-    // Remove authentication data from the previous login system.
-    localStorage.removeItem("marvel_authenticated");
-    localStorage.removeItem("marvel_customer");
+    // Remove authentication data from
+    // the previous login system.
+    localStorage.removeItem(
+      "marvel_authenticated"
+    );
 
-    sessionStorage.removeItem("marvel_authenticated");
-    sessionStorage.removeItem("marvel_customer");
+    localStorage.removeItem(
+      "marvel_customer"
+    );
 
-    navigate("/login", { replace: true });
+    sessionStorage.removeItem(
+      "marvel_authenticated"
+    );
+
+    sessionStorage.removeItem(
+      "marvel_customer"
+    );
+
+    navigate("/login", {
+      replace: true,
+    });
+  };
+
+  /*
+   * ==========================================
+   * USER AVATAR
+   * ==========================================
+   */
+
+  const getUserInitials = () => {
+    if (!user?.name) {
+      return "MG";
+    }
+
+    return user.name
+      .split(" ")
+      .map((word) => word[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase();
   };
 
   return (
-    <main className="admin-layout">
-
-      {/* =========================
-          SIDEBAR
-      ========================= */}
-
-      <aside className="admin-sidebar">
-
-        <Link to="/" className="admin-brand">
-          MARVEL
-          <span>GLOBAL FISH TRADING</span>
-        </Link>
-
-        <div className="admin-sidebar-label">
-          ADMINISTRATION
-        </div>
-
-        <nav className="admin-navigation">
-
-          <Link
-            to="/admin"
-            className="admin-nav-link active"
-          >
-            <Wallet size={17} />
-            Dashboard
-          </Link>
-
-          <Link
-            to="/admin/customers"
-            className="admin-nav-link"
-          >
-            <Users size={17} />
-            Customers
-          </Link>
-
-          <Link
-            to="/admin/products"
-            className="admin-nav-link"
-          >
-            <Package size={17} />
-            Products
-          </Link>
-
-          <Link
-            to="/admin/orders"
-            className="admin-nav-link"
-          >
-            <Ship size={17} />
-            Orders
-          </Link>
-
-          <Link
-            to="/admin/invoices"
-            className="admin-nav-link"
-          >
-            <FileText size={17} />
-            Invoices
-          </Link>
-
-          <Link
-            to="/admin/payments"
-            className="admin-nav-link"
-          >
-            <Wallet size={17} />
-            Payments
-          </Link>
-
-          <Link
-            to="/admin/shipments"
-            className="admin-nav-link"
-          >
-            <Ship size={17} />
-            Shipments
-          </Link>
-
-          <Link
-            to="/admin/reports"
-            className="admin-nav-link"
-          >
-            <ArrowUpRight size={17} />
-            Reports
-          </Link>
-
-        </nav>
-
-        <div className="admin-sidebar-bottom">
-
-          <Link
-            to="/admin/settings"
-            className="admin-nav-link"
-          >
-            Settings
-          </Link>
-
-          <button
-            type="button"
-            className="admin-logout"
-            onClick={handleLogout}
-          >
-            Sign Out
-          </button>
-
-        </div>
-
-      </aside>
-
-      {/* =========================
-          MAIN CONTENT
-      ========================= */}
-
-      <section className="admin-main">
-
-        {/* HEADER */}
+    <AdminLayout>
+      <div className="admin-page">
+        {/* =====================================
+            HEADER
+        ====================================== */}
 
         <header className="admin-header">
-
           <div>
             <span className="section-label">
               MARVEL ADMINISTRATION
@@ -206,6 +137,7 @@ function AdminDashboard() {
           </div>
 
           <div className="admin-header-actions">
+            {/* NOTIFICATIONS */}
 
             <button
               type="button"
@@ -215,22 +147,17 @@ function AdminDashboard() {
               <Bell size={18} />
             </button>
 
-            <div className="admin-user">
+            {/* USER */}
 
+            <div className="admin-user">
               <div className="admin-avatar">
-                {user?.name
-                  ? user.name
-                      .split(" ")
-                      .map((word) => word[0])
-                      .join("")
-                      .slice(0, 2)
-                      .toUpperCase()
-                  : "MG"}
+                {getUserInitials()}
               </div>
 
               <div>
                 <strong>
-                  {user?.name || "MARVEL Admin"}
+                  {user?.name ||
+                    "MARVEL Admin"}
                 </strong>
 
                 <span>
@@ -239,100 +166,130 @@ function AdminDashboard() {
                     : "User"}
                 </span>
               </div>
-
             </div>
 
-          </div>
+            {/* LOGOUT */}
 
+            <button
+              type="button"
+              className="admin-logout"
+              onClick={handleLogout}
+            >
+              Sign Out
+            </button>
+          </div>
         </header>
 
-        <div className="admin-content">
+        {/* =====================================
+            CONTENT
+        ====================================== */}
 
-          {/* =========================
+        <div className="admin-content">
+          {/* ===================================
               KPI CARDS
-          ========================= */}
+          ==================================== */}
 
           <section className="admin-kpis">
-
             <article className="admin-kpi">
-
               <div className="admin-kpi-icon">
                 <Wallet size={20} />
               </div>
 
               <div>
-                <span>Total Revenue</span>
-                <strong>$48,650</strong>
-                <small>+12.8% this month</small>
-              </div>
+                <span>
+                  Total Revenue
+                </span>
 
+                <strong>
+                  $48,650
+                </strong>
+
+                <small>
+                  +12.8% this month
+                </small>
+              </div>
             </article>
 
             <article className="admin-kpi">
-
               <div className="admin-kpi-icon">
                 <Users size={20} />
               </div>
 
               <div>
-                <span>Customers</span>
-                <strong>126</strong>
-                <small>+8 new this month</small>
-              </div>
+                <span>
+                  Customers
+                </span>
 
+                <strong>
+                  126
+                </strong>
+
+                <small>
+                  +8 new this month
+                </small>
+              </div>
             </article>
 
             <article className="admin-kpi">
-
               <div className="admin-kpi-icon">
                 <FileText size={20} />
               </div>
 
               <div>
-                <span>Pending Invoices</span>
-                <strong>14</strong>
-                <small>$31,400 outstanding</small>
-              </div>
+                <span>
+                  Pending Invoices
+                </span>
 
+                <strong>
+                  14
+                </strong>
+
+                <small>
+                  $31,400 outstanding
+                </small>
+              </div>
             </article>
 
             <article className="admin-kpi">
-
               <div className="admin-kpi-icon">
                 <Ship size={20} />
               </div>
 
               <div>
-                <span>Active Shipments</span>
-                <strong>8</strong>
-                <small>Across 5 destinations</small>
+                <span>
+                  Active Shipments
+                </span>
+
+                <strong>
+                  8
+                </strong>
+
+                <small>
+                  Across 5 destinations
+                </small>
               </div>
-
             </article>
-
           </section>
 
-          {/* =========================
+          {/* ===================================
               QUICK ACTIONS
-          ========================= */}
+          ==================================== */}
 
           <section className="admin-section">
-
             <div className="admin-section-heading">
-
               <div>
                 <span className="section-label">
                   QUICK ACTIONS
                 </span>
 
-                <h2>Manage operations</h2>
+                <h2>
+                  Manage operations
+                </h2>
               </div>
-
             </div>
 
             <div className="admin-actions">
-
-              {/* FIXED: invoices/create → invoices */}
+              {/* CREATE INVOICE */}
 
               <Link
                 to="/admin/invoices"
@@ -341,15 +298,22 @@ function AdminDashboard() {
                 <FileText size={20} />
 
                 <div>
-                  <strong>Create Invoice</strong>
+                  <strong>
+                    Create Invoice
+                  </strong>
 
                   <span>
-                    Issue a new customer invoice
+                    Issue a new customer
+                    invoice
                   </span>
                 </div>
 
-                <ChevronRight size={16} />
+                <ChevronRight
+                  size={16}
+                />
               </Link>
+
+              {/* ADD CUSTOMER */}
 
               <Link
                 to="/admin/customers"
@@ -358,15 +322,22 @@ function AdminDashboard() {
                 <Users size={20} />
 
                 <div>
-                  <strong>Add Customer</strong>
+                  <strong>
+                    Add Customer
+                  </strong>
 
                   <span>
-                    Create a new trade account
+                    Create a new trade
+                    account
                   </span>
                 </div>
 
-                <ChevronRight size={16} />
+                <ChevronRight
+                  size={16}
+                />
               </Link>
+
+              {/* MANAGE PRODUCTS */}
 
               <Link
                 to="/admin/products"
@@ -375,163 +346,181 @@ function AdminDashboard() {
                 <Package size={20} />
 
                 <div>
-                  <strong>Manage Products</strong>
+                  <strong>
+                    Manage Products
+                  </strong>
 
                   <span>
-                    Update seafood catalogue
+                    Update seafood
+                    catalogue
                   </span>
                 </div>
 
-                <ChevronRight size={16} />
+                <ChevronRight
+                  size={16}
+                />
               </Link>
-
             </div>
-
           </section>
 
-          {/* =========================
+          {/* ===================================
               TRANSACTIONS + ORDERS
-          ========================= */}
+          ==================================== */}
 
           <section className="admin-two-column">
-
-            {/* TRANSACTIONS */}
+            {/* =================================
+                TRANSACTIONS
+            ================================== */}
 
             <div className="admin-panel">
-
               <div className="admin-panel-header">
-
                 <div>
                   <span className="section-label">
                     FINANCIAL ACTIVITY
                   </span>
 
-                  <h2>Recent transactions</h2>
+                  <h2>
+                    Recent transactions
+                  </h2>
                 </div>
 
                 <Link to="/admin/payments">
                   View all
-                  <ChevronRight size={14} />
-                </Link>
 
+                  <ChevronRight
+                    size={14}
+                  />
+                </Link>
               </div>
 
               <div className="admin-table">
-
                 <div className="admin-table-head">
-                  <span>INVOICE</span>
-                  <span>CUSTOMER</span>
-                  <span>AMOUNT</span>
-                  <span>STATUS</span>
+                  <span>
+                    INVOICE
+                  </span>
+
+                  <span>
+                    CUSTOMER
+                  </span>
+
+                  <span>
+                    AMOUNT
+                  </span>
+
+                  <span>
+                    STATUS
+                  </span>
                 </div>
 
-                {transactions.map((transaction) => (
-
-                  <div
-                    className="admin-table-row"
-                    key={transaction.id}
-                  >
-
-                    <strong>
-                      {transaction.id}
-                    </strong>
-
-                    <span>
-                      {transaction.customer}
-                    </span>
-
-                    <strong>
-                      {transaction.amount}
-                    </strong>
-
-                    <span
-                      className={
-                        transaction.status === "PAID"
-                          ? "admin-status paid"
-                          : "admin-status pending"
+                {transactions.map(
+                  (transaction) => (
+                    <div
+                      className="admin-table-row"
+                      key={
+                        transaction.id
                       }
                     >
-                      {transaction.status}
-                    </span>
+                      <strong>
+                        {
+                          transaction.id
+                        }
+                      </strong>
 
-                  </div>
+                      <span>
+                        {
+                          transaction.customer
+                        }
+                      </span>
 
-                ))}
+                      <strong>
+                        {
+                          transaction.amount
+                        }
+                      </strong>
 
+                      <span
+                        className={
+                          transaction.status ===
+                          "PAID"
+                            ? "admin-status paid"
+                            : "admin-status pending"
+                        }
+                      >
+                        {
+                          transaction.status
+                        }
+                      </span>
+                    </div>
+                  )
+                )}
               </div>
-
             </div>
 
-            {/* ORDERS */}
+            {/* =================================
+                RECENT ORDERS
+            ================================== */}
 
             <div className="admin-panel">
-
               <div className="admin-panel-header">
-
                 <div>
                   <span className="section-label">
                     LOGISTICS
                   </span>
 
-                  <h2>Recent orders</h2>
+                  <h2>
+                    Recent orders
+                  </h2>
                 </div>
 
                 <Link to="/admin/orders">
                   View all
-                  <ChevronRight size={14} />
-                </Link>
 
+                  <ChevronRight
+                    size={14}
+                  />
+                </Link>
               </div>
 
               <div className="admin-orders">
-
                 {orders.map((order) => (
-
                   <div
                     className="admin-order"
                     key={order.id}
                   >
-
                     <div className="admin-order-icon">
                       <Ship size={17} />
                     </div>
 
                     <div className="admin-order-info">
-
                       <strong>
                         {order.id}
                       </strong>
 
                       <span>
-                        {order.product} ·{" "}
+                        {order.product}{" "}
+                        ·{" "}
                         {order.quantity}
                       </span>
-
                     </div>
 
                     <span
                       className={`admin-status ${order.status
                         .toLowerCase()
-                        .replaceAll(" ", "-")}`}
+                        .replaceAll(
+                          " ",
+                          "-"
+                        )}`}
                     >
                       {order.status}
                     </span>
-
                   </div>
-
                 ))}
-
               </div>
-
             </div>
-
           </section>
-
         </div>
-
-      </section>
-
-    </main>
+      </div>
+    </AdminLayout>
   );
 }
 

@@ -1,276 +1,648 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  ArrowLeft,
   Edit3,
   Package,
   Plus,
   Search,
   Trash2,
+  X,
+  Save,
+  AlertCircle,
+  CheckCircle2,
 } from "lucide-react";
-import { Link } from "react-router-dom";
 
-const initialProducts = [
-  {
-    id: "PRD-001",
-    name: "Fresh Nile Perch",
-    category: "Fresh Fish",
-    origin: "Kenya",
-    packaging: "10 KG Carton",
-    price: "$8.50 / KG",
-    status: "AVAILABLE",
-  },
-  {
-    id: "PRD-002",
-    name: "Frozen Tilapia",
-    category: "Frozen Fish",
-    origin: "East Africa",
-    packaging: "20 KG Carton",
-    price: "$5.80 / KG",
-    status: "AVAILABLE",
-  },
-  {
-    id: "PRD-003",
-    name: "Premium Shrimp",
-    category: "Shrimp",
-    origin: "Indian Ocean",
-    packaging: "5 KG Carton",
-    price: "$12.40 / KG",
-    status: "AVAILABLE",
-  },
-  {
-    id: "PRD-004",
-    name: "Frozen Mackerel",
-    category: "Frozen Fish",
-    origin: "Atlantic Ocean",
-    packaging: "25 KG Carton",
-    price: "$4.90 / KG",
-    status: "LOW STOCK",
-  },
-  {
-    id: "PRD-005",
-    name: "Fresh Red Snapper",
-    category: "Fresh Fish",
-    origin: "Indian Ocean",
-    packaging: "10 KG Carton",
-    price: "$10.20 / KG",
-    status: "AVAILABLE",
-  },
-  {
-    id: "PRD-006",
-    name: "Mixed Seafood",
-    category: "Seafood",
-    origin: "East Africa",
-    packaging: "10 KG Carton",
-    price: "$9.50 / KG",
-    status: "AVAILABLE",
-  },
-];
+import AdminLayout from "../components/AdminLayout";
 
-const categories = [
-  "All Categories",
+import {
+  getProducts,
+  addProduct,
+  updateProduct,
+  deleteProduct,
+  nextId,
+  subscribeToDataChanges,
+} from "../data/store";
+
+const EMPTY_FORM = {
+  name: "",
+  category: "Fresh Fish",
+  origin: "Kenya",
+  unit: "Kg",
+  price: "",
+  stock: "",
+};
+
+const CATEGORIES = [
   "Fresh Fish",
   "Frozen Fish",
-  "Shrimp",
   "Seafood",
+  "Fillets",
+  "Shellfish",
+  "Other",
 ];
 
-function AdminProducts() {
-  const [productList, setProductList] = useState(initialProducts);
-  const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("All Categories");
+const UNITS = [
+  "Kg",
+  "Ton",
+  "Box",
+  "Carton",
+  "Piece",
+];
 
-  const filteredProducts = useMemo(() => {
-    const searchTerm = search.trim().toLowerCase();
+export default function AdminProducts() {
+  // ============================================================
+  // STATE
+  // ============================================================
 
-    return productList.filter((product) => {
-      const matchesCategory =
-        category === "All Categories" ||
-        product.category === category;
+  const [products, setProducts] = useState([]);
 
-      const matchesSearch =
-        !searchTerm ||
-        product.name.toLowerCase().includes(searchTerm) ||
-        product.id.toLowerCase().includes(searchTerm) ||
-        product.category.toLowerCase().includes(searchTerm) ||
-        product.origin.toLowerCase().includes(searchTerm);
+  const [searchTerm, setSearchTerm] =
+    useState("");
 
-      return matchesCategory && matchesSearch;
-    });
-  }, [productList, search, category]);
+  const [categoryFilter, setCategoryFilter] =
+    useState("All");
 
-  const handleDelete = (id) => {
-    const product = productList.find(
-      (item) => item.id === id
+  const [showForm, setShowForm] =
+    useState(false);
+
+  const [editingId, setEditingId] =
+    useState(null);
+
+  const [form, setForm] = useState({
+    ...EMPTY_FORM,
+  });
+
+  const [error, setError] =
+    useState("");
+
+  const [success, setSuccess] =
+    useState("");
+
+  const [saving, setSaving] =
+    useState(false);
+
+  // ============================================================
+  // LOAD PRODUCTS
+  // ============================================================
+
+  const loadProducts = () => {
+    try {
+      const data = getProducts();
+
+      setProducts(
+        Array.isArray(data)
+          ? [...data]
+          : []
+      );
+    } catch (err) {
+      console.error(
+        "MARVEL PRODUCT LOAD ERROR:",
+        err
+      );
+
+      setProducts([]);
+
+      setError(
+        "Unable to load products."
+      );
+    }
+  };
+
+  // ============================================================
+  // INITIAL LOAD + STORE LISTENER
+  // ============================================================
+
+  useEffect(() => {
+    console.log(
+      "MARVEL ADMIN PRODUCTS LOADED"
     );
 
-    if (!product) {
+    loadProducts();
+
+    const unsubscribe =
+      subscribeToDataChanges(() => {
+        loadProducts();
+      });
+
+    return unsubscribe;
+  }, []);
+
+  // ============================================================
+  // FILTER PRODUCTS
+  // ============================================================
+
+  const filteredProducts = useMemo(() => {
+    const query =
+      searchTerm
+        .trim()
+        .toLowerCase();
+
+    return products.filter(
+      (product) => {
+        const matchesSearch =
+          !query ||
+          [
+            product.id,
+            product.name,
+            product.category,
+            product.origin,
+            product.unit,
+            product.status,
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase()
+            .includes(query);
+
+        const matchesCategory =
+          categoryFilter === "All" ||
+          product.category ===
+            categoryFilter;
+
+        return (
+          matchesSearch &&
+          matchesCategory
+        );
+      }
+    );
+  }, [
+    products,
+    searchTerm,
+    categoryFilter,
+  ]);
+
+  // ============================================================
+  // PRODUCT STATISTICS
+  // ============================================================
+
+  const totalStock = products.reduce(
+    (total, product) =>
+      total +
+      (Number(product.stock) || 0),
+    0
+  );
+
+  const inStock = products.filter(
+    (product) =>
+      Number(product.stock) > 50
+  ).length;
+
+  const lowStock = products.filter(
+    (product) => {
+      const stock =
+        Number(product.stock) || 0;
+
+      return (
+        stock > 0 &&
+        stock <= 50
+      );
+    }
+  ).length;
+
+  const outOfStock =
+    products.filter(
+      (product) =>
+        Number(product.stock) <= 0
+    ).length;
+
+  // ============================================================
+  // OPEN ADD FORM
+  // ============================================================
+
+  const openAddForm = () => {
+    console.log(
+      "MARVEL: ADD PRODUCT"
+    );
+
+    setEditingId(null);
+
+    setForm({
+      ...EMPTY_FORM,
+    });
+
+    setError("");
+    setSuccess("");
+    setShowForm(true);
+  };
+
+  // ============================================================
+  // OPEN EDIT FORM
+  // ============================================================
+
+  const openEditForm = (product) => {
+    console.log(
+      "MARVEL: EDIT PRODUCT",
+      product
+    );
+
+    setEditingId(product.id);
+
+    setForm({
+      name: product.name || "",
+      category:
+        product.category ||
+        "Fresh Fish",
+      origin:
+        product.origin || "Kenya",
+      unit:
+        product.unit || "Kg",
+      price:
+        product.price ?? "",
+      stock:
+        product.stock ?? "",
+    });
+
+    setError("");
+    setSuccess("");
+    setShowForm(true);
+  };
+
+  // ============================================================
+  // CLOSE FORM
+  // ============================================================
+
+  const closeForm = () => {
+    if (saving) {
       return;
     }
 
-    const confirmed = window.confirm(
-      `Delete ${product.name} from the catalogue?`
+    setShowForm(false);
+    setEditingId(null);
+
+    setForm({
+      ...EMPTY_FORM,
+    });
+
+    setError("");
+    setSuccess("");
+  };
+
+  // ============================================================
+  // INPUT CHANGE
+  // ============================================================
+
+  const handleChange = (event) => {
+    const {
+      name,
+      value,
+    } = event.target;
+
+    setForm((current) => ({
+      ...current,
+      [name]: value,
+    }));
+
+    setError("");
+    setSuccess("");
+  };
+
+  // ============================================================
+  // VALIDATE FORM
+  // ============================================================
+
+  const validateForm = () => {
+    const name =
+      String(form.name || "")
+        .trim();
+
+    const category =
+      String(form.category || "")
+        .trim();
+
+    const origin =
+      String(form.origin || "")
+        .trim();
+
+    const unit =
+      String(form.unit || "")
+        .trim();
+
+    const price =
+      Number(form.price);
+
+    const stock =
+      Number(form.stock);
+
+    if (!name) {
+      return "Product name is required.";
+    }
+
+    if (!category) {
+      return "Product category is required.";
+    }
+
+    if (!origin) {
+      return "Product origin is required.";
+    }
+
+    if (!unit) {
+      return "Product unit is required.";
+    }
+
+    if (
+      form.price === "" ||
+      !Number.isFinite(price) ||
+      price < 0
+    ) {
+      return "Enter a valid product price.";
+    }
+
+    if (
+      form.stock === "" ||
+      !Number.isFinite(stock) ||
+      stock < 0
+    ) {
+      return "Enter a valid stock quantity.";
+    }
+
+    return null;
+  };
+
+  // ============================================================
+  // SUBMIT FORM
+  // ============================================================
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+
+    console.log(
+      "MARVEL: PRODUCT FORM SUBMITTED"
     );
+
+    if (saving) {
+      return;
+    }
+
+    setError("");
+    setSuccess("");
+
+    const validationError =
+      validateForm();
+
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    const productData = {
+      name: String(
+        form.name || ""
+      ).trim(),
+
+      category: String(
+        form.category ||
+          "Fresh Fish"
+      ).trim(),
+
+      origin: String(
+        form.origin ||
+          "Kenya"
+      ).trim(),
+
+      unit: String(
+        form.unit || "Kg"
+      ).trim(),
+
+      price: Math.max(
+        0,
+        Number(form.price) || 0
+      ),
+
+      stock: Math.max(
+        0,
+        Number(form.stock) || 0
+      ),
+    };
+
+    setSaving(true);
+
+    try {
+      // ========================================================
+      // UPDATE
+      // ========================================================
+
+      if (editingId) {
+        console.log(
+          "MARVEL: UPDATING PRODUCT",
+          editingId
+        );
+
+        const updated =
+          updateProduct(
+            editingId,
+            productData
+          );
+
+        if (!updated) {
+          throw new Error(
+            "Product could not be updated."
+          );
+        }
+
+        loadProducts();
+
+        setSuccess(
+          "Product updated successfully."
+        );
+      }
+
+      // ========================================================
+      // ADD
+      // ========================================================
+
+      else {
+        console.log(
+          "MARVEL: CREATING PRODUCT"
+        );
+
+        const created =
+          addProduct(
+            productData
+          );
+
+        if (!created) {
+          throw new Error(
+            "Product could not be created."
+          );
+        }
+
+        console.log(
+          "MARVEL: PRODUCT CREATED",
+          created
+        );
+
+        loadProducts();
+
+        setSuccess(
+          `Product ${created.id} added successfully.`
+        );
+      }
+
+      // ========================================================
+      // CLOSE AFTER SUCCESS
+      // ========================================================
+
+      setTimeout(() => {
+        setShowForm(false);
+        setEditingId(null);
+
+        setForm({
+          ...EMPTY_FORM,
+        });
+
+        setSuccess("");
+        setError("");
+        setSaving(false);
+
+        loadProducts();
+      }, 700);
+    } catch (err) {
+      console.error(
+        "MARVEL PRODUCT SAVE ERROR:",
+        err
+      );
+
+      setError(
+        err?.message ||
+          "Unable to save product."
+      );
+
+      setSaving(false);
+    }
+  };
+
+  // ============================================================
+  // DELETE PRODUCT
+  // ============================================================
+
+  const handleDelete = (product) => {
+    const productName =
+      product.name ||
+      product.id ||
+      "this product";
+
+    console.log(
+      "MARVEL: DELETE PRODUCT",
+      product
+    );
+
+    const confirmed =
+      window.confirm(
+        `Delete "${productName}"?\n\nThis action cannot be undone.`
+      );
 
     if (!confirmed) {
       return;
     }
 
-    setProductList((currentProducts) =>
-      currentProducts.filter(
-        (item) => item.id !== id
-      )
-    );
+    try {
+      const result =
+        deleteProduct(
+          product.id
+        );
+
+      if (!Array.isArray(result)) {
+        throw new Error(
+          "Product could not be deleted."
+        );
+      }
+
+      setProducts([
+        ...result,
+      ]);
+
+      setSuccess(
+        `${productName} deleted successfully.`
+      );
+
+      setError("");
+
+      setTimeout(() => {
+        setSuccess("");
+      }, 2500);
+    } catch (err) {
+      console.error(
+        "MARVEL PRODUCT DELETE ERROR:",
+        err
+      );
+
+      setError(
+        err?.message ||
+          "Unable to delete product."
+      );
+    }
   };
 
-  const handleEdit = (product) => {
-    window.alert(
-      `Product editing for ${product.name} will be connected to the product form next.`
-    );
+  // ============================================================
+  // STATUS
+  // ============================================================
+
+  const getStatus = (product) => {
+    const stock =
+      Number(product.stock) || 0;
+
+    if (stock <= 0) {
+      return {
+        label: "Out of Stock",
+        className: "out-of-stock",
+      };
+    }
+
+    if (stock <= 50) {
+      return {
+        label: "Low Stock",
+        className: "low-stock",
+      };
+    }
+
+    return {
+      label: "In Stock",
+      className: "in-stock",
+    };
   };
 
-  const handleAddProduct = () => {
-    window.alert(
-      "The Add Product form will be connected next."
+  // ============================================================
+  // NEXT ID
+  // ============================================================
+
+  const nextProductId =
+    nextId(
+      "PRD",
+      products
     );
-  };
 
-  const availableCount = productList.filter(
-    (product) => product.status === "AVAILABLE"
-  ).length;
-
-  const lowStockCount = productList.filter(
-    (product) => product.status === "LOW STOCK"
-  ).length;
+  // ============================================================
+  // RENDER
+  // ============================================================
 
   return (
-    <main className="admin-layout">
+    <AdminLayout>
+      <div className="admin-page">
 
-      {/* =========================================
-          SIDEBAR
-      ========================================= */}
-
-      <aside className="admin-sidebar">
-
-        <Link to="/" className="admin-brand">
-          MARVEL
-          <span>GLOBAL FISH TRADING</span>
-        </Link>
-
-        <div className="admin-sidebar-label">
-          ADMINISTRATION
-        </div>
-
-        <nav className="admin-navigation">
-
-          <Link
-            to="/admin"
-            className="admin-nav-link"
-          >
-            Dashboard
-          </Link>
-
-          <Link
-            to="/admin/customers"
-            className="admin-nav-link"
-          >
-            Customers
-          </Link>
-
-          <Link
-            to="/admin/products"
-            className="admin-nav-link active"
-          >
-            <Package size={17} />
-            Products
-          </Link>
-
-          <Link
-            to="/admin/orders"
-            className="admin-nav-link"
-          >
-            Orders
-          </Link>
-
-          <Link
-            to="/admin/invoices"
-            className="admin-nav-link"
-          >
-            Invoices
-          </Link>
-
-          <Link
-            to="/admin/payments"
-            className="admin-nav-link"
-          >
-            Payments
-          </Link>
-
-          <Link
-            to="/admin/shipments"
-            className="admin-nav-link"
-          >
-            Shipments
-          </Link>
-
-          <Link
-            to="/admin/reports"
-            className="admin-nav-link"
-          >
-            Reports
-          </Link>
-
-        </nav>
-
-        <div className="admin-sidebar-bottom">
-
-          <Link
-            to="/admin/settings"
-            className="admin-nav-link"
-          >
-            Settings
-          </Link>
-
-        </div>
-
-      </aside>
-
-      {/* =========================================
-          MAIN CONTENT
-      ========================================= */}
-
-      <section className="admin-main">
-
-        {/* HEADER */}
+        {/* ====================================================
+            HEADER
+        ==================================================== */}
 
         <header className="admin-header">
 
           <div>
-
-            <Link
-              to="/admin"
-              className="admin-back-link"
-            >
-              <ArrowLeft size={16} />
-              Dashboard
-            </Link>
-
             <span className="section-label">
               PRODUCT MANAGEMENT
             </span>
 
-            <h1>Products</h1>
+            <h1>
+              Products
+            </h1>
 
             <p>
-              Manage the MARVEL seafood catalogue,
-              availability and product information.
+              Manage MARVEL Global Fish Trading
+              seafood products and inventory.
             </p>
-
           </div>
 
           <button
             type="button"
-            className="primary-button"
-            onClick={handleAddProduct}
+            className="admin-primary-button"
+            onClick={openAddForm}
           >
             <Plus size={17} />
             Add Product
@@ -280,294 +652,771 @@ function AdminProducts() {
 
         <div className="admin-content">
 
-          {/* =========================================
-              PRODUCT SUMMARY
-          ========================================= */}
+          {/* ==================================================
+              KPI CARDS
+          ================================================== */}
 
           <section className="admin-kpis">
 
             <article className="admin-kpi">
 
-              <div className="admin-kpi-icon">
-                <Package size={20} />
-              </div>
+              <Package size={20} />
 
               <div>
-                <span>Total Products</span>
+                <span>
+                  Total Products
+                </span>
 
                 <strong>
-                  {productList.length}
+                  {products.length}
                 </strong>
-
-                <small>
-                  Catalogue products
-                </small>
               </div>
 
             </article>
 
             <article className="admin-kpi">
 
-              <div className="admin-kpi-icon">
-                <Package size={20} />
-              </div>
+              <CheckCircle2 size={20} />
 
               <div>
-                <span>Available</span>
+                <span>
+                  In Stock
+                </span>
 
                 <strong>
-                  {availableCount}
+                  {inStock}
                 </strong>
-
-                <small>
-                  Ready for quotation
-                </small>
               </div>
 
             </article>
 
             <article className="admin-kpi">
 
-              <div className="admin-kpi-icon">
-                <Package size={20} />
-              </div>
+              <AlertCircle size={20} />
 
               <div>
-                <span>Low Stock</span>
+                <span>
+                  Low Stock
+                </span>
 
                 <strong>
-                  {lowStockCount}
+                  {lowStock}
                 </strong>
+              </div>
 
-                <small>
-                  Requires attention
-                </small>
+            </article>
+
+            <article className="admin-kpi">
+
+              <AlertCircle size={20} />
+
+              <div>
+                <span>
+                  Out of Stock
+                </span>
+
+                <strong>
+                  {outOfStock}
+                </strong>
               </div>
 
             </article>
 
           </section>
 
-          {/* =========================================
-              PRODUCT MANAGEMENT
-          ========================================= */}
+          {/* ==================================================
+              PRODUCT PANEL
+          ================================================== */}
 
           <section className="admin-panel">
 
             <div className="admin-panel-header">
 
               <div>
-
                 <span className="section-label">
-                  SEAFOOD CATALOGUE
+                  INVENTORY
                 </span>
 
                 <h2>
-                  Manage products
+                  Product Catalogue
                 </h2>
-
               </div>
 
-              <Link to="/products">
-                View public catalogue
-              </Link>
+              <div>
+                <strong>
+                  {totalStock.toLocaleString()}
+                </strong>{" "}
+                total units
+              </div>
 
             </div>
 
-            {/* FILTERS */}
+            {/* SUCCESS MESSAGE */}
 
-            <div className="catalogue-toolbar">
+            {success && (
+              <div className="admin-success-message">
 
-              <div className="product-search">
+                <CheckCircle2
+                  size={17}
+                />
 
-                <Search size={18} />
+                <span>
+                  {success}
+                </span>
+
+              </div>
+            )}
+
+            {/* ERROR MESSAGE */}
+
+            {error &&
+              !showForm && (
+                <div className="admin-error-message">
+
+                  <AlertCircle
+                    size={17}
+                  />
+
+                  <span>
+                    {error}
+                  </span>
+
+                </div>
+              )}
+
+            {/* =================================================
+                TOOLBAR
+            ================================================= */}
+
+            <div className="admin-toolbar">
+
+              <div className="admin-search">
+
+                <Search size={17} />
 
                 <input
                   type="search"
                   placeholder="Search products..."
-                  value={search}
+                  value={searchTerm}
                   onChange={(event) =>
-                    setSearch(event.target.value)
+                    setSearchTerm(
+                      event.target.value
+                    )
                   }
-                  aria-label="Search products"
                 />
 
               </div>
 
               <select
-                value={category}
+                value={categoryFilter}
                 onChange={(event) =>
-                  setCategory(event.target.value)
+                  setCategoryFilter(
+                    event.target.value
+                  )
                 }
-                className="admin-select"
-                aria-label="Filter products by category"
+                className="admin-filter-select"
               >
 
-                {categories.map((item) => (
-                  <option
-                    key={item}
-                    value={item}
-                  >
-                    {item}
-                  </option>
-                ))}
+                <option value="All">
+                  All Categories
+                </option>
+
+                {CATEGORIES.map(
+                  (category) => (
+                    <option
+                      key={category}
+                      value={category}
+                    >
+                      {category}
+                    </option>
+                  )
+                )}
 
               </select>
 
             </div>
 
-            {/* PRODUCT TABLE */}
+            {/* =================================================
+                EMPTY STATE
+            ================================================= */}
 
-            <div className="admin-table">
+            {filteredProducts.length ===
+            0 ? (
 
-              <div className="admin-table-head">
+              <div className="admin-empty-state">
 
-                <span>PRODUCT</span>
-                <span>CATEGORY</span>
-                <span>ORIGIN</span>
-                <span>PACKAGING</span>
-                <span>PRICE</span>
-                <span>STATUS</span>
-                <span>ACTIONS</span>
+                <Package size={42} />
+
+                <h3>
+                  {searchTerm ||
+                  categoryFilter !== "All"
+                    ? "No products found"
+                    : "No products yet"}
+                </h3>
+
+                <p>
+                  {searchTerm ||
+                  categoryFilter !== "All"
+                    ? "Try changing your search or filter."
+                    : "Add your first product to the catalogue."}
+                </p>
+
+                {!searchTerm &&
+                  categoryFilter ===
+                    "All" && (
+                    <button
+                      type="button"
+                      className="admin-primary-button"
+                      onClick={
+                        openAddForm
+                      }
+                    >
+                      <Plus size={17} />
+                      Add Product
+                    </button>
+                  )}
 
               </div>
 
-              {filteredProducts.length > 0 ? (
+            ) : (
 
-                filteredProducts.map((product) => (
+              /* =================================================
+                 TABLE
+              ================================================= */
 
-                  <div
-                    className="admin-table-row admin-product-row"
-                    key={product.id}
-                  >
+              <div className="admin-table-wrapper">
 
-                    {/* PRODUCT */}
+                <table className="admin-table">
 
-                    <div className="admin-product-name">
+                  <thead>
 
-                      <div className="admin-order-icon">
-                        <Package size={16} />
-                      </div>
+                    <tr>
 
-                      <div>
+                      <th>
+                        Product
+                      </th>
 
-                        <strong>
-                          {product.name}
-                        </strong>
+                      <th>
+                        Category
+                      </th>
 
-                        <span>
-                          {product.id}
-                        </span>
+                      <th>
+                        Origin
+                      </th>
 
-                      </div>
+                      <th>
+                        Price
+                      </th>
 
-                    </div>
+                      <th>
+                        Stock
+                      </th>
 
-                    {/* CATEGORY */}
+                      <th>
+                        Status
+                      </th>
 
-                    <span>
-                      {product.category}
-                    </span>
+                      <th>
+                        Actions
+                      </th>
 
-                    {/* ORIGIN */}
+                    </tr>
 
-                    <span>
-                      {product.origin}
-                    </span>
+                  </thead>
 
-                    {/* PACKAGING */}
+                  <tbody>
 
-                    <span>
-                      {product.packaging}
-                    </span>
+                    {filteredProducts.map(
+                      (product) => {
 
-                    {/* PRICE */}
+                        const status =
+                          getStatus(
+                            product
+                          );
 
-                    <strong>
-                      {product.price}
-                    </strong>
+                        return (
+                          <tr
+                            key={
+                              product.id
+                            }
+                          >
 
-                    {/* STATUS */}
+                            {/* PRODUCT */}
 
-                    <span
-                      className={
-                        product.status === "AVAILABLE"
-                          ? "admin-status paid"
-                          : "admin-status pending"
+                            <td>
+
+                              <div className="admin-product-name">
+
+                                <Package
+                                  size={19}
+                                />
+
+                                <div>
+
+                                  <strong>
+                                    {product.name ||
+                                      "Unnamed Product"}
+                                  </strong>
+
+                                  <span>
+                                    {product.id}
+                                  </span>
+
+                                </div>
+
+                              </div>
+
+                            </td>
+
+                            {/* CATEGORY */}
+
+                            <td>
+                              {product.category ||
+                                "—"}
+                            </td>
+
+                            {/* ORIGIN */}
+
+                            <td>
+                              {product.origin ||
+                                "—"}
+                            </td>
+
+                            {/* PRICE */}
+
+                            <td>
+
+                              KES{" "}
+
+                              {Number(
+                                product.price ||
+                                  0
+                              ).toLocaleString(
+                                "en-KE",
+                                {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                }
+                              )}
+
+                              <small>
+                                /{" "}
+                                {product.unit ||
+                                  "Kg"}
+                              </small>
+
+                            </td>
+
+                            {/* STOCK */}
+
+                            <td>
+
+                              <strong>
+                                {Number(
+                                  product.stock ||
+                                    0
+                                ).toLocaleString()}
+                              </strong>{" "}
+
+                              {product.unit ||
+                                "Kg"}
+
+                            </td>
+
+                            {/* STATUS */}
+
+                            <td>
+
+                              <span
+                                className={`admin-status ${status.className}`}
+                              >
+                                {status.label}
+                              </span>
+
+                            </td>
+
+                            {/* ACTIONS */}
+
+                            <td>
+
+                              <div className="admin-table-actions">
+
+                                <button
+                                  type="button"
+                                  className="admin-icon-button"
+                                  title="Edit product"
+                                  onClick={() =>
+                                    openEditForm(
+                                      product
+                                    )
+                                  }
+                                >
+                                  <Edit3
+                                    size={16}
+                                  />
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className="admin-icon-button danger"
+                                  title="Delete product"
+                                  onClick={() =>
+                                    handleDelete(
+                                      product
+                                    )
+                                  }
+                                >
+                                  <Trash2
+                                    size={16}
+                                  />
+                                </button>
+
+                              </div>
+
+                            </td>
+
+                          </tr>
+                        );
                       }
-                    >
-                      {product.status}
-                    </span>
+                    )}
 
-                    {/* ACTIONS */}
+                  </tbody>
 
-                    <div className="admin-row-actions">
+                </table>
 
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleEdit(product)
-                        }
-                        aria-label={`Edit ${product.name}`}
-                        title="Edit product"
-                      >
-                        <Edit3 size={16} />
-                      </button>
+              </div>
 
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleDelete(product.id)
-                        }
-                        aria-label={`Delete ${product.name}`}
-                        title="Delete product"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-
-                    </div>
-
-                  </div>
-
-                ))
-
-              ) : (
-
-                <div className="empty-products">
-
-                  <h2>
-                    No products found
-                  </h2>
-
-                  <p>
-                    Try changing your search or
-                    category filter.
-                  </p>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSearch("");
-                      setCategory("All Categories");
-                    }}
-                  >
-                    Clear Filters
-                  </button>
-
-                </div>
-
-              )}
-
-            </div>
+            )}
 
           </section>
 
         </div>
 
-      </section>
+        {/* ======================================================
+            ADD / EDIT MODAL
+        ====================================================== */}
 
-    </main>
+        {showForm && (
+
+          <div
+            className="admin-modal-backdrop"
+            onMouseDown={(event) => {
+
+              if (
+                event.target ===
+                event.currentTarget
+              ) {
+                closeForm();
+              }
+
+            }}
+          >
+
+            <div
+              className="admin-modal"
+              role="dialog"
+              aria-modal="true"
+              onMouseDown={(event) =>
+                event.stopPropagation()
+              }
+            >
+
+              {/* MODAL HEADER */}
+
+              <div className="admin-modal-header">
+
+                <div>
+
+                  <span className="section-label">
+
+                    {editingId
+                      ? "EDIT PRODUCT"
+                      : "NEW PRODUCT"}
+
+                  </span>
+
+                  <h2>
+
+                    {editingId
+                      ? "Edit Product"
+                      : "Add Product"}
+
+                  </h2>
+
+                  <small>
+
+                    Product ID:{" "}
+
+                    <strong>
+                      {editingId ||
+                        nextProductId}
+                    </strong>
+
+                  </small>
+
+                </div>
+
+                <button
+                  type="button"
+                  className="admin-icon-button"
+                  onClick={closeForm}
+                  disabled={saving}
+                  aria-label="Close"
+                >
+                  <X size={20} />
+                </button>
+
+              </div>
+
+              {/* FORM */}
+
+              <form
+                className="admin-form"
+                onSubmit={
+                  handleSubmit
+                }
+              >
+
+                <div className="admin-form-grid">
+
+                  {/* NAME */}
+
+                  <div className="admin-form-group">
+
+                    <label htmlFor="product-name">
+                      Product Name *
+                    </label>
+
+                    <input
+                      id="product-name"
+                      name="name"
+                      type="text"
+                      value={form.name}
+                      onChange={
+                        handleChange
+                      }
+                      placeholder="Fresh Nile Perch"
+                      disabled={saving}
+                      autoFocus
+                    />
+
+                  </div>
+
+                  {/* CATEGORY */}
+
+                  <div className="admin-form-group">
+
+                    <label htmlFor="product-category">
+                      Category *
+                    </label>
+
+                    <select
+                      id="product-category"
+                      name="category"
+                      value={
+                        form.category
+                      }
+                      onChange={
+                        handleChange
+                      }
+                      disabled={saving}
+                    >
+
+                      {CATEGORIES.map(
+                        (category) => (
+                          <option
+                            key={category}
+                            value={category}
+                          >
+                            {category}
+                          </option>
+                        )
+                      )}
+
+                    </select>
+
+                  </div>
+
+                  {/* ORIGIN */}
+
+                  <div className="admin-form-group">
+
+                    <label htmlFor="product-origin">
+                      Origin *
+                    </label>
+
+                    <input
+                      id="product-origin"
+                      name="origin"
+                      type="text"
+                      value={
+                        form.origin
+                      }
+                      onChange={
+                        handleChange
+                      }
+                      placeholder="Kenya"
+                      disabled={saving}
+                    />
+
+                  </div>
+
+                  {/* UNIT */}
+
+                  <div className="admin-form-group">
+
+                    <label htmlFor="product-unit">
+                      Unit *
+                    </label>
+
+                    <select
+                      id="product-unit"
+                      name="unit"
+                      value={form.unit}
+                      onChange={
+                        handleChange
+                      }
+                      disabled={saving}
+                    >
+
+                      {UNITS.map(
+                        (unit) => (
+                          <option
+                            key={unit}
+                            value={unit}
+                          >
+                            {unit}
+                          </option>
+                        )
+                      )}
+
+                    </select>
+
+                  </div>
+
+                  {/* PRICE */}
+
+                  <div className="admin-form-group">
+
+                    <label htmlFor="product-price">
+                      Price (KES) *
+                    </label>
+
+                    <input
+                      id="product-price"
+                      name="price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={form.price}
+                      onChange={
+                        handleChange
+                      }
+                      placeholder="850"
+                      disabled={saving}
+                    />
+
+                  </div>
+
+                  {/* STOCK */}
+
+                  <div className="admin-form-group">
+
+                    <label htmlFor="product-stock">
+                      Stock Quantity *
+                    </label>
+
+                    <input
+                      id="product-stock"
+                      name="stock"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={form.stock}
+                      onChange={
+                        handleChange
+                      }
+                      placeholder="100"
+                      disabled={saving}
+                    />
+
+                  </div>
+
+                </div>
+
+                {/* FORM ERROR */}
+
+                {error && (
+                  <div className="admin-error-message">
+
+                    <AlertCircle
+                      size={17}
+                    />
+
+                    <span>
+                      {error}
+                    </span>
+
+                  </div>
+                )}
+
+                {/* FORM SUCCESS */}
+
+                {success && (
+                  <div className="admin-success-message">
+
+                    <CheckCircle2
+                      size={17}
+                    />
+
+                    <span>
+                      {success}
+                    </span>
+
+                  </div>
+                )}
+
+                {/* FORM ACTIONS */}
+
+                <div className="admin-form-actions">
+
+                  <button
+                    type="button"
+                    className="admin-secondary-button"
+                    onClick={closeForm}
+                    disabled={saving}
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="submit"
+                    className="admin-primary-button"
+                    disabled={saving}
+                  >
+
+                    <Save size={17} />
+
+                    {saving
+                      ? "Saving..."
+                      : editingId
+                      ? "Update Product"
+                      : "Add Product"}
+
+                  </button>
+
+                </div>
+
+              </form>
+
+            </div>
+
+          </div>
+
+        )}
+
+      </div>
+    </AdminLayout>
   );
 }
 
-export default AdminProducts;

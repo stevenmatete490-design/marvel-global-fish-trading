@@ -20,6 +20,7 @@ import Contact from "./pages/Contact";
 import RequestQuote from "./pages/RequestQuote";
 
 import Login from "./pages/Login";
+
 import CustomerPortal from "./pages/CustomerPortal";
 import Invoices from "./pages/Invoices";
 import Payments from "./pages/Payments";
@@ -27,14 +28,15 @@ import Orders from "./pages/Orders";
 import Documents from "./pages/Documents";
 
 import AdminDashboard from "./pages/AdminDashboard";
-import Customers from "./pages/admin/Customers";
-import AdminProducts from "./pages/admin/AdminProducts";
-import AdminOrders from "./pages/admin/AdminOrders";
-import AdminInvoices from "./pages/admin/AdminInvoices";
-import AdminPayments from "./pages/admin/AdminPayments";
-import AdminShipments from "./pages/admin/AdminShipments";
-import AdminReports from "./pages/admin/AdminReports";
-import AdminSettings from "./pages/admin/AdminSettings";
+import AdminCustomers from "./pages/AdminCustomers";
+import AdminProducts from "./pages/AdminProducts";
+import AdminOrders from "./pages/AdminOrders";
+import AdminInvoices from "./pages/AdminInvoices";
+import AdminPayments from "./pages/AdminPayments";
+import AdminShipments from "./pages/AdminShipments";
+
+import AdminReports from "./pages/admin/Reports";
+import AdminSettings from "./pages/admin/Settings";
 
 import "./App.css";
 
@@ -59,15 +61,13 @@ function AppLayout() {
 
   return (
     <div className="app">
-
       {!hidePublicLayout && <Navbar />}
 
       <main>
         <Routes>
-
-          {/* =========================================
+          {/* =====================================
               PUBLIC WEBSITE
-          ========================================= */}
+          ====================================== */}
 
           <Route
             path="/"
@@ -99,22 +99,27 @@ function AppLayout() {
             element={<RequestQuote />}
           />
 
-          {/* =========================================
+          {/* =====================================
               AUTHENTICATION
-          ========================================= */}
+          ====================================== */}
 
           <Route
             path="/login"
             element={<Login />}
           />
 
-          {/* =========================================
+          {/* =====================================
               CUSTOMER PORTAL
-          ========================================= */}
+          ====================================== */}
 
           <Route
             path="/customer"
             element={<CustomerPortal />}
+          />
+
+          <Route
+            path="/customer/orders"
+            element={<Orders />}
           />
 
           <Route
@@ -128,21 +133,19 @@ function AppLayout() {
           />
 
           <Route
-            path="/customer/orders"
-            element={<Orders />}
-          />
-
-          <Route
             path="/customer/documents"
             element={<Documents />}
           />
 
-          {/* =========================================
-              PROTECTED ADMIN SYSTEM
-          ========================================= */}
+          {/* =====================================
+              PROTECTED ADMIN PORTAL
+          ====================================== */}
 
-          <Route element={<ProtectedAdminRoute />}>
-
+          <Route
+            element={
+              <ProtectedAdminRoute />
+            }
+          >
             {/* Dashboard */}
 
             <Route
@@ -154,7 +157,7 @@ function AppLayout() {
 
             <Route
               path="/admin/customers"
-              element={<Customers />}
+              element={<AdminCustomers />}
             />
 
             {/* Products */}
@@ -205,23 +208,25 @@ function AppLayout() {
               path="/admin/settings"
               element={<AdminSettings />}
             />
-
           </Route>
 
-          {/* =========================================
+          {/* =====================================
               FALLBACK
-          ========================================= */}
+          ====================================== */}
 
           <Route
             path="*"
-            element={<Navigate to="/" replace />}
+            element={
+              <Navigate
+                to="/"
+                replace
+              />
+            }
           />
-
         </Routes>
       </main>
 
       {!hidePublicLayout && <Footer />}
-
     </div>
   );
 }
@@ -229,11 +234,9 @@ function AppLayout() {
 function App() {
   return (
     <BrowserRouter>
-
       <AuthProvider>
         <AppLayout />
       </AuthProvider>
-
     </BrowserRouter>
   );
 }
